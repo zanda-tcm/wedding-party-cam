@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
+  <title>Z & E Wedding Party Cam</title>
+
+  <style>
+    :root {
+      --background: #f5f1ea;
+      --text: #252525;
+      --accent: #8b7355;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px 18px 40px;
+      background: var(--background);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 12px 0 6px;
+      font-family: Georgia, serif;
+      font-size: 34px;
+      font-weight: normal;
+    }
+
+    .subtitle {
+      margin: 0 0 20px;
+      line-height: 1.5;
+    }
+
+    .camera {
+      overflow: hidden;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      background: #111111;
+      border-radius: 20px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+    }
+
+    video,
+    #preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #preview {
+      display: none;
+    }
+
+    canvas {
+      display: none;
+    }
+
+    .buttons {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    button {
+      width: 100%;
+      min-height: 54px;
+      padding: 14px 18px;
+      border: 0;
+      border-radius: 999px;
+      font-size: 17px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: var(--white);
+    }
+
+    .secondary {
+      background: var(--white);
+      color: var(--text);
+      border: 1px solid #d7d0c5;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.6;
+    }
+
+    #uploadButton,
+    #retakeButton {
+      display: none;
+    }
+
+    #message {
+      min-height: 25px;
+      margin-top: 16px;
+      line-height: 1.4;
+    }
+
+    iframe {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <h1>Z & E</h1>
+
+    <p class="subtitle">
+      Help us capture the celebration!<br>
+      Take a photo and send it to our wedding album.
+    </p>
+
+    <section class="camera">
+      <video id="camera" autoplay playsinline muted></video>
+      <img id="preview" alt="Your captured wedding photograph">
+      <canvas id="canvas"></canvas>
+    </section>
+
+    <div class="buttons">
+      <button id="startButton" class="primary">
+        Open camera
+      </button>
+
+      <button id="takeButton" class="primary" disabled>
+        Take photo
+      </button>
+
+      <button id="uploadButton" class="primary">
+        Add to wedding album
+      </button>
+
+      <button id="retakeButton" class="secondary">
+        Retake photo
+      </button>
+    </div>
+
+    <p id="message"></p>
+
+    <form
+      id="uploadForm"
+      method="post"
+      target="uploadFrame"
+      hidden
+    >
+      <input type="hidden" name="key" id="uploadKey">
+      <input type="hidden" name="imageData" id="imageData">
+    </form>
+
+    <iframe id="uploadFrame" name="uploadFrame"></iframe>
+  </main>
+
+  <script>
+    const APPS_SCRIPT_URL =
+      'https://script.google.com/macros/s/AKfycbzeLQeAZT113cnjxJT78nN8VYtM_COIz9BbbRCyQGxYGDGzggvepx8kgIH8R2llDfN4Zw/exec';
+
+    const UPLOAD_KEY =
+      'ZANDA-WEDDING-2026';
+
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    const preview = document.getElementById('preview');
+    const message = document.getElementById('message');
+
+    const startButton = document.getElementById('startButton');
+    const takeButton = document.getElementById('takeButton');
+    const uploadButton = document.getElementById('uploadButton');
+    const retakeButton = document.getElementById('retakeButton');
+
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadFrame = document.getElementById('uploadFrame');
+
+    let cameraStream = null;
+    let capturedPhoto = '';
+    let uploadStarted = false;
+
+    uploadForm.action = APPS_SCRIPT_URL;
+    document.getElementById('uploadKey').value = UPLOAD_KEY;
+
+    async function startCamera() {
+      message.textContent = 'Opening your camera…';
+
+      try {
+        cameraStream =
+          await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1920 },
+              height: { ideal: 2560 }
+            }
+          });
+
+        video.srcObject = cameraStream;
+        await video.play();
+
+        startButton.style.display = 'none';
+        takeButton.disabled = false;
+        message.textContent = '';
+      } catch (error) {
+        message.textContent =
+          'Camera access was not allowed. Please enable camera permission in your browser settings and try again.';
+      }
+    }
+
+    function takePhoto() {
+      const originalWidth = video.videoWidth;
+      const originalHeight = video.videoHeight;
+
+      if (!originalWidth || !originalHeight) {
+        message.textContent =
+          'The camera is still starting. Please try again.';
+        return;
+      }
+
+      const maximumDimension = 1800;
+      const scale = Math.min(
+        1,
+        maximumDimension / Math.max(originalWidth, originalHeight)
+      );
+
+      canvas.width = Math.round(originalWidth * scale);
+      canvas.height = Math.round(originalHeight * scale);
+
+      const context = canvas.getContext('2d');
+
+      context.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+
+      capturedPhoto =
+        canvas.toDataURL('image/jpeg', 0.86);
+
+      preview.src = capturedPhoto;
+      video.style.display = 'none';
+      preview.style.display = 'block';
+
+      takeButton.style.display = 'none';
+      uploadButton.style.display = 'block';
+      retakeButton.style.display = 'block';
+
+      message.textContent =
+        'Happy with it? Add it to the wedding album.';
+    }
+
+    function retakePhoto() {
+      capturedPhoto = '';
+
+      preview.style.display = 'none';
+      video.style.display = 'block';
+
+      uploadButton.style.display = 'none';
+      retakeButton.style.display = 'none';
+      takeButton.style.display = 'block';
+
+      message.textContent = '';
+    }
+
+    function uploadPhoto() {
+      if (!capturedPhoto) {
+        return;
+      }
+
+      uploadStarted = true;
+      uploadButton.disabled = true;
+      retakeButton.disabled = true;
+      message.textContent =
+        'Adding your photo to the wedding album…';
+
+      document.getElementById('imageData').value =
+        capturedPhoto;
+
+      uploadForm.submit();
+    }
+
+    uploadFrame.addEventListener('load', function () {
+      if (!uploadStarted) {
+        return;
+      }
+
+      uploadStarted = false;
+      capturedPhoto = '';
+
+      uploadButton.style.display = 'none';
+      retakeButton.style.display = 'none';
+      takeButton.style.display = 'block';
+
+      uploadButton.disabled = false;
+      retakeButton.disabled = false;
+
+      preview.style.display = 'none';
+      video.style.display = 'block';
+
+      message.textContent =
+        'Photo added! Thank you. You can take another one.';
+    });
+
+    startButton.addEventListener('click', startCamera);
+    takeButton.addEventListener('click', takePhoto);
+    retakeButton.addEventListener('click', retakePhoto);
+    uploadButton.addEventListener('click', uploadPhoto);
+  </script>
+</body>
+</html>
