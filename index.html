@@ -7,7 +7,7 @@
     content="width=device-width, initial-scale=1, viewport-fit=cover"
   >
 
-  <title>Zanda & Emma Wedding Party Cam</title>
+  <title>Zanda & Emma's Wedding Party Cam</title>
 
   <style>
     :root {
@@ -15,6 +15,7 @@
       --text: #252525;
       --accent: #8b7355;
       --white: #ffffff;
+      --danger: #a43d3d;
     }
 
     * {
@@ -39,14 +40,33 @@
 
     h1 {
       margin: 12px 0 6px;
-      font-family: Georgia, serif;
-      font-size: 34px;
-      font-weight: normal;
+      font: normal 34px Georgia, serif;
     }
 
     .subtitle {
-      margin: 0 0 20px;
+      margin: 0 0 18px;
       line-height: 1.5;
+    }
+
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 14px;
+      padding: 5px;
+      background: #e8e1d7;
+      border-radius: 999px;
+    }
+
+    .mode-switch button {
+      min-height: 44px;
+      background: transparent;
+      color: var(--text);
+    }
+
+    .mode-switch button.active {
+      background: var(--white);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .camera {
@@ -54,24 +74,55 @@
       position: relative;
       width: 100%;
       aspect-ratio: 3 / 4;
-      background: #111111;
+      background: #111;
       border-radius: 20px;
       box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
     }
 
     video,
-    #preview {
+    #photoPreview {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    #preview {
+    #photoPreview,
+    #mediaPreview {
       display: none;
+    }
+
+    #timer {
+      display: none;
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(164, 61, 61, 0.92);
+      color: white;
+      font-weight: bold;
     }
 
     canvas {
       display: none;
+    }
+
+    .zoom {
+      display: none;
+      margin: 16px 4px 4px;
+      text-align: left;
+    }
+
+    .zoom label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 7px;
+      font-weight: bold;
+    }
+
+    .zoom input {
+      width: 100%;
     }
 
     .buttons {
@@ -96,6 +147,11 @@
       color: var(--white);
     }
 
+    .recording {
+      background: var(--danger);
+      color: var(--white);
+    }
+
     .secondary {
       background: var(--white);
       color: var(--text);
@@ -107,6 +163,7 @@
       opacity: 0.6;
     }
 
+    #captureButton,
     #uploadButton,
     #retakeButton {
       display: none;
@@ -126,34 +183,91 @@
 
 <body>
   <main class="container">
-    <h1>Z & E</h1>
+    <h1>Zanda & Emma</h1>
 
     <p class="subtitle">
       Help us capture the celebration!<br>
-      Take a photo and send it to our wedding album.
+      Take a photo or a 10-second video.
     </p>
 
+    <div class="mode-switch">
+      <button id="photoMode" class="active" type="button">
+        Photo
+      </button>
+
+      <button id="videoMode" type="button">
+        Video
+      </button>
+    </div>
+
     <section class="camera">
-      <video id="camera" autoplay playsinline muted></video>
-      <img id="preview" alt="Your captured wedding photograph">
+      <video
+        id="camera"
+        autoplay
+        playsinline
+        muted
+      ></video>
+
+      <img
+        id="photoPreview"
+        alt="Your captured wedding photo"
+      >
+
+      <video
+        id="mediaPreview"
+        playsinline
+        controls
+      ></video>
+
+      <span id="timer">10 seconds</span>
+
       <canvas id="canvas"></canvas>
     </section>
 
+    <div id="zoomBox" class="zoom">
+      <label for="zoomSlider">
+        <span>Zoom</span>
+        <span id="zoomValue">1×</span>
+      </label>
+
+      <input
+        id="zoomSlider"
+        type="range"
+        step="0.1"
+      >
+    </div>
+
     <div class="buttons">
-      <button id="startButton" class="primary">
+      <button
+        id="startButton"
+        class="primary"
+        type="button"
+      >
         Open camera
       </button>
 
-      <button id="takeButton" class="primary" disabled>
+      <button
+        id="captureButton"
+        class="primary"
+        type="button"
+      >
         Take photo
       </button>
 
-      <button id="uploadButton" class="primary">
+      <button
+        id="uploadButton"
+        class="primary"
+        type="button"
+      >
         Add to wedding album
       </button>
 
-      <button id="retakeButton" class="secondary">
-        Retake photo
+      <button
+        id="retakeButton"
+        class="secondary"
+        type="button"
+      >
+        Retake
       </button>
     </div>
 
@@ -165,166 +279,611 @@
       target="uploadFrame"
       hidden
     >
-      <input type="hidden" name="key" id="uploadKey">
-      <input type="hidden" name="imageData" id="imageData">
+      <input
+        type="hidden"
+        name="key"
+        id="uploadKey"
+      >
+
+      <input
+        type="hidden"
+        name="mediaData"
+        id="mediaData"
+      >
     </form>
 
-    <iframe id="uploadFrame" name="uploadFrame"></iframe>
+    <iframe
+      id="uploadFrame"
+      name="uploadFrame"
+    ></iframe>
   </main>
 
   <script>
     const APPS_SCRIPT_URL =
-      'https://script.google.com/macros/s/AKfycbwU6RE2mx1ZXe32myr3rJ9oMDe-tcZugM6sHuzQlxCANsCLl5WBKv89Hh8pccAeUOdG/exec';
+      'PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE';
 
     const UPLOAD_KEY =
       'ZANDA-EMMA-WEDDING-2026';
 
-    const video = document.getElementById('camera');
-    const canvas = document.getElementById('canvas');
-    const preview = document.getElementById('preview');
-    const message = document.getElementById('message');
+    const VIDEO_SECONDS = 10;
 
-    const startButton = document.getElementById('startButton');
-    const takeButton = document.getElementById('takeButton');
-    const uploadButton = document.getElementById('uploadButton');
-    const retakeButton = document.getElementById('retakeButton');
+    const camera =
+      document.getElementById('camera');
 
-    const uploadForm = document.getElementById('uploadForm');
-    const uploadFrame = document.getElementById('uploadFrame');
+    const canvas =
+      document.getElementById('canvas');
 
-    let cameraStream = null;
-    let capturedPhoto = '';
+    const photoPreview =
+      document.getElementById('photoPreview');
+
+    const mediaPreview =
+      document.getElementById('mediaPreview');
+
+    const timer =
+      document.getElementById('timer');
+
+    const message =
+      document.getElementById('message');
+
+    const photoMode =
+      document.getElementById('photoMode');
+
+    const videoMode =
+      document.getElementById('videoMode');
+
+    const startButton =
+      document.getElementById('startButton');
+
+    const captureButton =
+      document.getElementById('captureButton');
+
+    const uploadButton =
+      document.getElementById('uploadButton');
+
+    const retakeButton =
+      document.getElementById('retakeButton');
+
+    const zoomBox =
+      document.getElementById('zoomBox');
+
+    const zoomSlider =
+      document.getElementById('zoomSlider');
+
+    const zoomValue =
+      document.getElementById('zoomValue');
+
+    const uploadForm =
+      document.getElementById('uploadForm');
+
+    let mode = 'photo';
+    let stream = null;
+    let videoTrack = null;
+    let recorder = null;
+    let recordedChunks = [];
+    let capturedMedia = '';
+    let uploadedMimeType = '';
+    let countdown = null;
+    let stopTimeout = null;
     let uploadStarted = false;
+    let uploadTimeout = null;
 
     uploadForm.action = APPS_SCRIPT_URL;
-    document.getElementById('uploadKey').value = UPLOAD_KEY;
+
+    document.getElementById('uploadKey').value =
+      UPLOAD_KEY;
+
+    function setMode(nextMode) {
+      if (
+        recorder &&
+        recorder.state === 'recording'
+      ) {
+        return;
+      }
+
+      mode = nextMode;
+
+      photoMode.classList.toggle(
+        'active',
+        mode === 'photo'
+      );
+
+      videoMode.classList.toggle(
+        'active',
+        mode === 'video'
+      );
+
+      captureButton.textContent =
+        mode === 'photo'
+          ? 'Take photo'
+          : 'Start 10-second video';
+
+      resetPreview();
+    }
 
     async function startCamera() {
-      message.textContent = 'Opening your camera…';
+      message.textContent =
+        'Opening your camera…';
 
       try {
-        cameraStream =
+        stream =
           await navigator.mediaDevices.getUserMedia({
-            audio: false,
+            audio: true,
             video: {
-              facingMode: { ideal: 'environment' },
-              width: { ideal: 1920 },
-              height: { ideal: 2560 }
+              facingMode: {
+                ideal: 'environment'
+              },
+              width: {
+                ideal: 1280
+              },
+              height: {
+                ideal: 720
+              }
             }
           });
 
-        video.srcObject = cameraStream;
-        await video.play();
+        camera.srcObject = stream;
+        await camera.play();
+
+        videoTrack =
+          stream.getVideoTracks()[0];
+
+        configureZoom();
 
         startButton.style.display = 'none';
-        takeButton.disabled = false;
+        captureButton.style.display = 'block';
         message.textContent = '';
       } catch (error) {
         message.textContent =
-          'Camera access was not allowed. Please enable camera permission in your browser settings and try again.';
+          'Camera access was not allowed. Please allow camera and microphone access, then try again.';
+      }
+    }
+
+    function configureZoom() {
+      zoomBox.style.display = 'none';
+
+      if (
+        !videoTrack ||
+        !videoTrack.getCapabilities
+      ) {
+        return;
+      }
+
+      const capabilities =
+        videoTrack.getCapabilities();
+
+      if (!capabilities.zoom) {
+        return;
+      }
+
+      zoomSlider.min =
+        capabilities.zoom.min;
+
+      zoomSlider.max =
+        capabilities.zoom.max;
+
+      zoomSlider.step =
+        capabilities.zoom.step || 0.1;
+
+      zoomSlider.value =
+        videoTrack.getSettings().zoom ||
+        capabilities.zoom.min;
+
+      zoomValue.textContent =
+        Number(zoomSlider.value).toFixed(1) +
+        '×';
+
+      zoomBox.style.display = 'block';
+    }
+
+    async function changeZoom() {
+      if (!videoTrack) {
+        return;
+      }
+
+      const zoom =
+        Number(zoomSlider.value);
+
+      zoomValue.textContent =
+        zoom.toFixed(1) + '×';
+
+      try {
+        await videoTrack.applyConstraints({
+          advanced: [
+            {
+              zoom: zoom
+            }
+          ]
+        });
+      } catch (error) {
+        message.textContent =
+          'This phone could not change the camera zoom.';
+      }
+    }
+
+    function capture() {
+      if (mode === 'photo') {
+        takePhoto();
+      } else if (
+        recorder &&
+        recorder.state === 'recording'
+      ) {
+        stopRecording();
+      } else {
+        startRecording();
       }
     }
 
     function takePhoto() {
-      const originalWidth = video.videoWidth;
-      const originalHeight = video.videoHeight;
-
-      if (!originalWidth || !originalHeight) {
+      if (
+        !camera.videoWidth ||
+        !camera.videoHeight
+      ) {
         message.textContent =
           'The camera is still starting. Please try again.';
+
         return;
       }
 
       const maximumDimension = 1800;
+
       const scale = Math.min(
         1,
-        maximumDimension / Math.max(originalWidth, originalHeight)
+        maximumDimension /
+          Math.max(
+            camera.videoWidth,
+            camera.videoHeight
+          )
       );
 
-      canvas.width = Math.round(originalWidth * scale);
-      canvas.height = Math.round(originalHeight * scale);
+      canvas.width =
+        Math.round(
+          camera.videoWidth * scale
+        );
 
-      const context = canvas.getContext('2d');
+      canvas.height =
+        Math.round(
+          camera.videoHeight * scale
+        );
 
-      context.drawImage(
-        video,
-        0,
-        0,
-        canvas.width,
-        canvas.height
+      canvas
+        .getContext('2d')
+        .drawImage(
+          camera,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+      uploadedMimeType = 'image/jpeg';
+
+      capturedMedia =
+        canvas.toDataURL(
+          uploadedMimeType,
+          0.86
+        );
+
+      photoPreview.src = capturedMedia;
+
+      showPreview('photo');
+    }
+
+    function chooseVideoMimeType() {
+      const choices = [
+        'video/mp4;codecs=h264,aac',
+        'video/mp4',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ];
+
+      return (
+        choices.find(type =>
+          MediaRecorder.isTypeSupported(type)
+        ) || ''
+      );
+    }
+
+    function startRecording() {
+      if (!window.MediaRecorder) {
+        message.textContent =
+          'Video recording is not supported by this browser.';
+
+        return;
+      }
+
+      recordedChunks = [];
+
+      const preferredType =
+        chooseVideoMimeType();
+
+      const options = {
+        videoBitsPerSecond: 2500000
+      };
+
+      if (preferredType) {
+        options.mimeType = preferredType;
+      }
+
+      try {
+        recorder =
+          new MediaRecorder(
+            stream,
+            options
+          );
+      } catch (error) {
+        message.textContent =
+          'This phone could not start video recording.';
+
+        return;
+      }
+
+      recorder.ondataavailable = event => {
+        if (
+          event.data &&
+          event.data.size > 0
+        ) {
+          recordedChunks.push(event.data);
+        }
+      };
+
+      recorder.onstop = finishVideo;
+
+      recorder.start(250);
+
+      let secondsLeft = VIDEO_SECONDS;
+
+      timer.textContent =
+        secondsLeft + ' seconds';
+
+      timer.style.display = 'block';
+
+      captureButton.textContent =
+        'Stop recording';
+
+      captureButton.classList.add(
+        'recording'
       );
 
-      capturedPhoto =
-        canvas.toDataURL('image/jpeg', 0.86);
+      photoMode.disabled = true;
+      videoMode.disabled = true;
 
-      preview.src = capturedPhoto;
-      video.style.display = 'none';
-      preview.style.display = 'block';
+      message.textContent = 'Recording…';
 
-      takeButton.style.display = 'none';
-      uploadButton.style.display = 'block';
-      retakeButton.style.display = 'block';
+      countdown = setInterval(() => {
+        secondsLeft -= 1;
+
+        timer.textContent =
+          secondsLeft +
+          (
+            secondsLeft === 1
+              ? ' second'
+              : ' seconds'
+          );
+      }, 1000);
+
+      stopTimeout = setTimeout(
+        stopRecording,
+        VIDEO_SECONDS * 1000
+      );
+    }
+
+    function stopRecording() {
+      clearInterval(countdown);
+      clearTimeout(stopTimeout);
+
+      timer.style.display = 'none';
+
+      if (
+        recorder &&
+        recorder.state === 'recording'
+      ) {
+        recorder.stop();
+      }
+    }
+
+    function finishVideo() {
+      uploadedMimeType =
+        (
+          recorder.mimeType ||
+          'video/mp4'
+        ).split(';')[0];
+
+      const blob =
+        new Blob(
+          recordedChunks,
+          {
+            type: uploadedMimeType
+          }
+        );
+
+      const reader =
+        new FileReader();
+
+      reader.onloadend = () => {
+        capturedMedia =
+          reader.result;
+
+        mediaPreview.src =
+          URL.createObjectURL(blob);
+
+        showPreview('video');
+      };
+
+      reader.readAsDataURL(blob);
+
+      captureButton.classList.remove(
+        'recording'
+      );
+
+      photoMode.disabled = false;
+      videoMode.disabled = false;
+    }
+
+    function showPreview(kind) {
+      camera.style.display = 'none';
+
+      photoPreview.style.display =
+        kind === 'photo'
+          ? 'block'
+          : 'none';
+
+      mediaPreview.style.display =
+        kind === 'video'
+          ? 'block'
+          : 'none';
+
+      captureButton.style.display =
+        'none';
+
+      uploadButton.style.display =
+        'block';
+
+      retakeButton.style.display =
+        'block';
+
+      zoomBox.style.display = 'none';
 
       message.textContent =
         'Happy with it? Add it to the wedding album.';
     }
 
-    function retakePhoto() {
-      capturedPhoto = '';
+    function resetPreview() {
+      capturedMedia = '';
+      uploadedMimeType = '';
 
-      preview.style.display = 'none';
-      video.style.display = 'block';
+      photoPreview.removeAttribute('src');
+
+      mediaPreview.pause();
+      mediaPreview.removeAttribute('src');
+
+      photoPreview.style.display = 'none';
+      mediaPreview.style.display = 'none';
+      camera.style.display = 'block';
 
       uploadButton.style.display = 'none';
       retakeButton.style.display = 'none';
-      takeButton.style.display = 'block';
+
+      captureButton.style.display =
+        stream ? 'block' : 'none';
+
+      captureButton.textContent =
+        mode === 'photo'
+          ? 'Take photo'
+          : 'Start 10-second video';
+
+      if (stream) {
+        configureZoom();
+      }
 
       message.textContent = '';
     }
 
-    function uploadPhoto() {
-      if (!capturedPhoto) {
+    function uploadMedia() {
+      if (!capturedMedia) {
         return;
       }
 
       uploadStarted = true;
       uploadButton.disabled = true;
       retakeButton.disabled = true;
-      message.textContent =
-        'Adding your photo to the wedding album…';
 
-      document.getElementById('imageData').value =
-        capturedPhoto;
+      message.textContent =
+        uploadedMimeType.indexOf('video/') === 0
+          ? 'Uploading your video—please keep this page open…'
+          : 'Adding your photo to the wedding album…';
+
+      document
+        .getElementById('mediaData')
+        .value = capturedMedia;
 
       uploadForm.submit();
+
+      clearTimeout(uploadTimeout);
+
+      uploadTimeout = setTimeout(() => {
+        if (!uploadStarted) {
+          return;
+        }
+
+        uploadStarted = false;
+        uploadButton.disabled = false;
+        retakeButton.disabled = false;
+
+        message.textContent =
+          'The upload is taking too long. Please check your connection and try again.';
+      }, 60000);
     }
 
-    uploadFrame.addEventListener('load', function () {
-      if (!uploadStarted) {
-        return;
+    window.addEventListener(
+      'message',
+      event => {
+        const result = event.data;
+
+        if (
+          !result ||
+          result.source !==
+            'party-cam-upload' ||
+          !uploadStarted
+        ) {
+          return;
+        }
+
+        clearTimeout(uploadTimeout);
+
+        uploadStarted = false;
+        uploadButton.disabled = false;
+        retakeButton.disabled = false;
+
+        if (result.status === 'success') {
+          resetPreview();
+
+          message.textContent =
+            'Added! Thank you. You can capture another moment.';
+        } else {
+          message.textContent =
+            'The upload failed: ' +
+            (
+              result.message ||
+              'Please try again.'
+            );
+        }
       }
+    );
 
-      uploadStarted = false;
-      capturedPhoto = '';
+    photoMode.addEventListener(
+      'click',
+      () => setMode('photo')
+    );
 
-      uploadButton.style.display = 'none';
-      retakeButton.style.display = 'none';
-      takeButton.style.display = 'block';
+    videoMode.addEventListener(
+      'click',
+      () => setMode('video')
+    );
 
-      uploadButton.disabled = false;
-      retakeButton.disabled = false;
+    startButton.addEventListener(
+      'click',
+      startCamera
+    );
 
-      preview.style.display = 'none';
-      video.style.display = 'block';
+    captureButton.addEventListener(
+      'click',
+      capture
+    );
 
-      message.textContent =
-        'Photo added! Thank you. You can take another one.';
-    });
+    retakeButton.addEventListener(
+      'click',
+      resetPreview
+    );
 
-    startButton.addEventListener('click', startCamera);
-    takeButton.addEventListener('click', takePhoto);
-    retakeButton.addEventListener('click', retakePhoto);
-    uploadButton.addEventListener('click', uploadPhoto);
+    uploadButton.addEventListener(
+      'click',
+      uploadMedia
+    );
+
+    zoomSlider.addEventListener(
+      'input',
+      changeZoom
+    );
   </script>
 </body>
 </html>
